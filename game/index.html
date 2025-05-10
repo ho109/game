@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>턴제전투 게임?(커스텀)</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: black; color: white; }
+    canvas { display: block; margin: 0 auto; background: #222; border: 3px solid white; }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="500" height="550"></canvas>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const fightBox = { x: 50, y: 180, width: 400, height: 200 };
+const player = {
+  x: 240, y: 340, width: 20, height: 20, speed: 4,
+  hp: 20, maxHp: 20, color: "lime", items: 10
+};
+
+const imagePaths = [
+  "images/slime.png", "images/bat.png", "images/skel.png", "images/gob.png",
+  "images/wolf.png", "images/wizaed.png", "images/robot.png", "images/fireeee.png"
+];
+
+const enemies = [
+  { name: "슬라임", maxHp: 1, hp: 1, atk: 1, pattern: () => spawnCenterBullet(), img: new Image(), frameCount: 1 },
+  { name: "박쥐", maxHp: 12, hp: 12, atk: 1, pattern: () => spawnSideBullets(3), img: new Image(), frameCount: 1 },
+  { name: "스켈레톤", maxHp: 15, hp: 15, atk: 2, pattern: () => spawnRandomBullets(6), img: new Image(), frameCount: 1 },
+  { name: "고블린", maxHp: 18, hp: 18, atk: 3, pattern: () => spawnDiagonalBulletsFromTopRight(), img: new Image(), frameCount: 1 },
+  { name: "늑대", maxHp: 20, hp: 20, atk: 4, pattern: () => spawnAlternatingTopBottomBullets(), img: new Image(), frameCount: 1 },
+  { name: "마법사", maxHp: 25, hp: 25, atk: 3, pattern: () => spawnSpiralBullets(), img: new Image(), frameCount: 1 },
+  { name: "로봇", maxHp: 30, hp: 30, atk: 4, pattern: () => spawnBigDirectionalSquares(), img: new Image(), frameCount: 1 },
+  { name: "불", maxHp: 40, hp: 40, atk: 5, pattern: () => spawnRisingBullets(), img: new Image(), frameCount: 1 }
+];
+
+let imagesLoaded = 0;
+imagePaths.forEach((path, index) => {
+  const img = new Image();
+  img.src = path;
+  img.onload = () => {
+    enemies[index].img = img;
+    imagesLoaded++;
+    if (imagesLoaded === imagePaths.length) {
+      update();
+    }
+  };
+});
+
+function drawEnemyImage() {
+  const img = enemy.img;
+  if (img && img.complete) {
+    const sway = Math.sin(tick / 20) * 5;
+    ctx.drawImage(img, canvas.width / 2 - 32 + sway, 70, 64, 64);
+  }
+}
+
+function spawnCenterBullet() {
+  bullets.push({
+    x: fightBox.x + fightBox.width / 2 - 5,
+    y: fightBox.y,
+    width: 10,
+    height: 10,
+    speedY: 3
+  });
+}
+
+function spawnSideBullets(count) {
+  for (let i = 0; i < count; i++) {
+    bullets.push({
+      x: i % 2 === 0 ? fightBox.x : fightBox.x + fightBox.width,
+      y: fightBox.y + Math.random() * fightBox.height,
+      width: 10,
+      height: 10,
+      speedX: i % 2 === 0 ? 2 : -2,
+      horizontal: true
+    });
+  }
+}
+
+function spawnRandomBullets(count) {
+  for (let i = 0; i < count; i++) {
+    bullets.push({
+      x: fightBox.x + Math.random() * fightBox.width,
+      y: fightBox.y,
+      width: 10,
+      height: 10,
+      speedY: 2 + Math.random() * 2
+    });
+  }
+}
+
+function spawnDiagonalBulletsFromTopRight() {
+  for (let i = 0; i < 20; i++) {
+    const offsetX = Math.random() * 80;
+    const offsetY = Math.random() * 80;
+    bullets.push({
+      x: fightBox.x + fightBox.width - offsetX,
+      y: fightBox.y + offsetY,
+      width: 10,
+      height: 10,
+      speedX: -2 - Math.random() * 2,
+      speedY: 2 + Math.random() * 2
+    });
+  }
+}
+  
+
+function spawnAlternatingTopBottomBullets() {
+  const source = tick % 60 < 30 ? fightBox.y : fightBox.y + fightBox.height - 10;
+  for (let i = 0; i < 10; i++) {
+    bullets.push({
+      x: fightBox.x + i * (fightBox.width / 10),
+      y: source,
+      width: 10,
+      height: 10,
+      speedY: source === fightBox.y ? 2 : -2
+    });
+  }
+}
+
+function spawnSpiralBullets() {
+  const angleCount = 12;
+  const centerX = fightBox.x + fightBox.width / 2;
+  const centerY = fightBox.y + fightBox.height / 2;
+  for (let i = 0; i < angleCount; i++) {
+    const angle = (tick / 10) + (i * (Math.PI * 2 / angleCount));
+    bullets.push({
+      x: centerX,
+      y: centerY,
+      width: 8,
+      height: 8,
+      speedX: Math.cos(angle) * 2,
+      speedY: Math.sin(angle) * 2
+    });
+  }
+}
+
+function spawnRisingBullets() {
+  for (let i = 0; i < 10; i++) {
+    bullets.push({
+      x: fightBox.x + Math.random() * fightBox.width,
+      y: fightBox.y + fightBox.height,
+      width: 10,
+      height: 10,
+      speedY: -2
+    });
+  }
+}
+
+function spawnBigDirectionalSquares() {
+  const directions = ["up", "down", "left", "right"];
+  const dir = directions[Math.floor(tick / 60) % 4];
+  let b = { width: 30, height: 30 };
+  if (dir === "up") Object.assign(b, { x: player.x, y: fightBox.y + fightBox.height, speedY: -3 });
+  if (dir === "down") Object.assign(b, { x: player.x, y: fightBox.y, speedY: 3 });
+  if (dir === "left") Object.assign(b, { x: fightBox.x + fightBox.width, y: player.y, speedX: -3 });
+  if (dir === "right") Object.assign(b, { x: fightBox.x, y: player.y, speedX: 3 });
+  bullets.push(b);
+}
+
+// 추가 변수 및 초기 상태
+let currentEnemyIndex = 0;
+let enemy = enemies[currentEnemyIndex];
+let tick = 0;
+const bullets = [];
+let keys = {};
+let gameOver = false;
+let gameWon = false;
+let turn = "player";
+let attackTimer = 0;
+let attackDuration = 300;
+let isAttackGaugeActive = false;
+let gaugeX = 0;
+let gaugeDir = 4;
+
+function update() {
+  tick++;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawFightBox();
+  movePlayer();
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x, player.y, player.width, player.height);
+
+  if (turn === "player") {
+    if (isAttackGaugeActive) drawGaugeBar();
+  } else if (turn === "enemy") {
+    if (attackTimer % 30 === 0) enemy.pattern();
+    updateBullets();
+    drawBullets();
+    handleCollisions();
+    attackTimer--;
+    if (attackTimer <= 0) {
+      turn = "player";
+      bullets.length = 0;
+    }
+  }
+
+  drawUI();
+  if (!gameOver) requestAnimationFrame(update);
+}
+
+function drawFightBox() {
+  ctx.strokeStyle = "white";
+  ctx.strokeRect(fightBox.x, fightBox.y, fightBox.width, fightBox.height);
+}
+
+function movePlayer() {
+  if (turn !== "enemy" || gameOver) return;
+  if ((keys["ArrowLeft"] || keys["a"]) && player.x > fightBox.x) player.x -= player.speed;
+  if ((keys["ArrowRight"] || keys["d"]) && player.x + player.width < fightBox.x + fightBox.width) player.x += player.speed;
+  if ((keys["ArrowUp"] || keys["w"]) && player.y > fightBox.y) player.y -= player.speed;
+  if ((keys["ArrowDown"] || keys["s"]) && player.y + player.height < fightBox.y + fightBox.height) player.y += player.speed;
+}
+
+function drawBullets() {
+  ctx.fillStyle = "red";
+  bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+}
+
+function updateBullets() {
+  bullets.forEach(b => {
+    if (b.horizontal) b.x += b.speedX;
+    else {
+      if (b.speedX) b.x += b.speedX;
+      if (b.speedY) b.y += b.speedY;
+    }
+  });
+}
+
+function detectCollision(a, b) {
+  return a.x < b.x + b.width &&
+         a.x + a.width > b.x &&
+         a.y < b.y + b.height &&
+         a.y + a.height > b.y;
+}
+
+function handleCollisions() {
+  bullets.forEach(b => {
+    if (detectCollision(player, b)) {
+      b.y = -100;
+      player.hp -= enemy.atk;
+      if (player.hp <= 0) gameOver = true;
+    }
+  });
+}
+
+function drawGaugeBar() {
+  const barX = 100, barY = 300, barWidth = 300, barHeight = 20;
+  ctx.fillStyle = "gray";
+  ctx.fillRect(barX, barY, barWidth, barHeight);
+  ctx.fillStyle = "white";
+  ctx.fillRect(barX + barWidth / 2 - 2, barY, 4, barHeight);
+  ctx.fillStyle = "yellow";
+  ctx.fillRect(barX + gaugeX - 5, barY - 10, 10, barHeight + 20);
+  gaugeX += gaugeDir;
+  if (gaugeX <= 0 || gaugeX >= barWidth) gaugeDir *= -1;
+}
+
+function evaluateAttack() {
+  const center = 150;
+  const dist = Math.abs(gaugeX - center);
+  let damage = 1;
+  if (dist < 10) damage = 5;
+  else if (dist < 30) damage = 3;
+  else if (dist < 60) damage = 2;
+
+  enemy.hp -= damage;
+  if (enemy.hp <= 0) {
+    currentEnemyIndex++;
+    if (currentEnemyIndex >= enemies.length) {
+      gameOver = true;
+      gameWon = true;
+      return;
+    } else {
+      enemy = enemies[currentEnemyIndex];
+    enemy.hp = enemy.maxHp;
+    player.hp = player.maxHp;
+    bullets.length = 0;
+    turn = "enemy";
+    attackTimer = attackDuration;
+    }
+  }
+  isAttackGaugeActive = false;
+  turn = "enemy";
+  attackTimer = attackDuration;
+  bullets.length = 0;
+}
+
+function drawUI() {
+  ctx.font = "20px Arial";
+  ctx.fillStyle = "white";
+  ctx.textAlign = "center";
+  ctx.fillText(enemy.name, canvas.width / 2, 30);
+  drawEnemyImage();
+  drawHealthBar(canvas.width / 2 - 75, 40, 150, 15, enemy.hp, enemy.maxHp, "red");
+  drawHealthBar(20, 520, 150, 15, player.hp, player.maxHp, "lime");
+  ctx.font = "16px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText("아이템: " + player.items, 20, 505);
+  if (gameOver) {
+    ctx.fillStyle = gameWon ? "lime" : "red";
+    ctx.font = "40px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(gameWon ? "Victory!" : "Game Over", canvas.width / 2, canvas.height / 2);
+    ctx.font = "20px Arial";
+    ctx.fillText("스페이스바를 눌러 다시 시작", canvas.width / 2, canvas.height / 2 + 40);
+  }
+}
+
+function drawHealthBar(x, y, width, height, current, max, color) {
+  ctx.strokeStyle = "white";
+  ctx.strokeRect(x, y, width, height);
+  const ratio = Math.max(0, current / max);
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, width * ratio, height);
+}
+
+document.addEventListener("keydown", (e) => {
+  if (["z", "x", "c", " ", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "a", "s", "d", "w"].includes(e.key)) {
+    e.preventDefault();
+  }
+  keys[e.key] = true;
+
+  if (gameOver && e.key === " ") {
+    e.preventDefault();
+    currentEnemyIndex = 0;
+    enemy = enemies[currentEnemyIndex];
+    player.hp = player.maxHp;
+    player.items = 10;
+    gameOver = false;
+    gameWon = false;
+    bullets.length = 0;
+    turn = "player";
+    isAttackGaugeActive = false;
+    gaugeX = 0;
+    tick = 0;
+    update();
+    return;
+  }
+
+  if (isAttackGaugeActive && (e.key === " " || e.key === "Enter" || e.key === "z")) evaluateAttack();
+
+  if (turn === "player" && !gameOver && !isAttackGaugeActive) {
+    if (e.key === "z") {
+      isAttackGaugeActive = true;
+      gaugeX = 0;
+    } else if (e.key === "x" && player.items > 0) {
+      player.items--;
+      player.hp = Math.min(player.hp + Math.floor(player.maxHp / 4), player.maxHp);
+      turn = "enemy";
+      attackTimer = attackDuration;
+      bullets.length = 0;
+    } else if (e.key === "c" && player.hp > Math.floor(player.maxHp / 4)) {
+      player.hp -= Math.floor(player.maxHp / 4);
+      enemy.hp -= Math.floor(enemy.maxHp / 3);
+      if (enemy.hp <= 0) {
+        currentEnemyIndex++;
+        if (currentEnemyIndex >= enemies.length) {
+          gameOver = true;
+          gameWon = true;
+          return;
+        } else {
+          enemy = enemies[currentEnemyIndex];
+  enemy.hp = enemy.maxHp;
+          player.hp = player.maxHp;
+        }
+      }
+      turn = "enemy";
+      attackTimer = attackDuration;
+      bullets.length = 0;
+    }
+  }
+});
+
+document.addEventListener("keyup", (e) => keys[e.key] = false);
+</script>
+</body>
+</html>
