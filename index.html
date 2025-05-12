@@ -26,14 +26,14 @@ const imagePaths = [
 ];
 
 const enemies = [
-  { name: "슬라임", maxHp: 1, hp: 1, atk: 1, pattern: () => spawnCenterBullet(), img: new Image(), frameCount: 1 },
+  { name: "슬라임", maxHp: 5, hp: 5, atk: 1, pattern: () => spawnCenterBullet(), img: new Image(), frameCount: 1 },
   { name: "박쥐", maxHp: 12, hp: 12, atk: 1, pattern: () => spawnSideBullets(3), img: new Image(), frameCount: 1 },
   { name: "스켈레톤", maxHp: 15, hp: 15, atk: 2, pattern: () => spawnRandomBullets(6), img: new Image(), frameCount: 1 },
   { name: "고블린", maxHp: 18, hp: 18, atk: 3, pattern: () => spawnDiagonalBulletsFromTopRight(), img: new Image(), frameCount: 1 },
   { name: "늑대", maxHp: 20, hp: 20, atk: 4, pattern: () => spawnAlternatingTopBottomBullets(), img: new Image(), frameCount: 1 },
   { name: "마법사", maxHp: 25, hp: 25, atk: 3, pattern: () => spawnSpiralBullets(), img: new Image(), frameCount: 1 },
   { name: "로봇", maxHp: 30, hp: 30, atk: 4, pattern: () => spawnBigDirectionalSquares(), img: new Image(), frameCount: 1 },
-  { name: "불", maxHp: 40, hp: 40, atk: 5, pattern: () => spawnRisingBullets(), img: new Image(), frameCount: 1 }
+  { name: "불", maxHp: 35, hp: 35, atk: 5, pattern: () => spawnRisingBullets(), img: new Image(), frameCount: 1 }
 ];
 
 let imagesLoaded = 0;
@@ -44,10 +44,18 @@ imagePaths.forEach((path, index) => {
     enemies[index].img = img;
     imagesLoaded++;
     if (imagesLoaded === imagePaths.length) {
-      update();
+  startGameLoop(); // ✅ 안전하게 루프 시작
+
     }
   };
 });
+
+function startGameLoop() {
+  if (!isGameRunning) {
+    isGameRunning = true;
+    update();
+  }
+}
 
 function drawEnemyImage() {
   const img = enemy.img;
@@ -93,33 +101,59 @@ function spawnRandomBullets(count) {
 }
 
 function spawnDiagonalBulletsFromTopRight() {
-  for (let i = 0; i < 20; i++) {
-    const offsetX = Math.random() * 80;
-    const offsetY = Math.random() * 80;
-    bullets.push({
-      x: fightBox.x + fightBox.width - offsetX,
-      y: fightBox.y + offsetY,
-      width: 10,
-      height: 10,
-      speedX: -2 - Math.random() * 2,
-      speedY: 2 + Math.random() * 2
-    });
-  }
-}
-  
+  const count = 5; // 밀도
+  for (let i = 0; i < count; i++) {
+    const startX = fightBox.x + fightBox.width;
+    const startY = fightBox.y;
+    const playerCenterX = player.x + player.width / 2;
+    const playerCenterY = player.y + player.height / 2;
 
-function spawnAlternatingTopBottomBullets() {
-  const source = tick % 60 < 30 ? fightBox.y : fightBox.y + fightBox.height - 10;
-  for (let i = 0; i < 10; i++) {
+    // 방향 벡터 계산
+    let dx = playerCenterX - startX;
+    let dy = playerCenterY - startY;
+    const magnitude = Math.sqrt(dx * dx + dy * dy);
+
+    // 퍼짐 적용 (각도에 약간의 무작위 오차 추가)
+    const angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.4; // ±0.2 라디안 정도 산포
+    const speed = 2.5 + Math.random(); // 약간의 속도 변동
+    const velocityX = Math.cos(angle) * speed;
+    const velocityY = Math.sin(angle) * speed;
+
     bullets.push({
-      x: fightBox.x + i * (fightBox.width / 10),
-      y: source,
+      x: startX,
+      y: startY,
       width: 10,
       height: 10,
-      speedY: source === fightBox.y ? 2 : -2
+      speedX: velocityX,
+      speedY: velocityY
     });
   }
 }
+function spawnAlternatingTopBottomBullets() {
+  const isTop = tick % 60 < 30;
+  const startY = isTop ? fightBox.y : fightBox.y + fightBox.height - 10;
+  const dirY = isTop ? 1 : -1;
+
+  const spacing = 100; // 탄 간격 유지
+  const count = Math.floor(fightBox.width / spacing);
+
+  // 전체 줄의 좌우 흔들림 (sine으로 부드럽게)
+  const sway = Math.sin(tick / 30) * 40; // 좌우 최대 40px 흔들림
+
+  for (let i = 0; i <= count; i++) {
+    const baseX = fightBox.x + i * spacing + sway;
+    bullets.push({
+      x: baseX,
+      y: startY,
+      width: 10,
+      height: 10,
+      speedX: 0,
+      speedY: dirY * 2
+    });
+  }
+}
+
+
 
 function spawnSpiralBullets() {
   const angleCount = 12;
@@ -139,29 +173,127 @@ function spawnSpiralBullets() {
 }
 
 function spawnRisingBullets() {
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 1.5; i++) { // 밀도 1/4로 감소
     bullets.push({
       x: fightBox.x + Math.random() * fightBox.width,
       y: fightBox.y + fightBox.height,
       width: 10,
       height: 10,
-      speedY: -2
+      speedY: -2,
+      fireExplode: true
     });
   }
 }
 
+
 function spawnBigDirectionalSquares() {
-  const directions = ["up", "down", "left", "right"];
-  const dir = directions[Math.floor(tick / 60) % 4];
-  let b = { width: 30, height: 30 };
-  if (dir === "up") Object.assign(b, { x: player.x, y: fightBox.y + fightBox.height, speedY: -3 });
-  if (dir === "down") Object.assign(b, { x: player.x, y: fightBox.y, speedY: 3 });
-  if (dir === "left") Object.assign(b, { x: fightBox.x + fightBox.width, y: player.y, speedX: -3 });
-  if (dir === "right") Object.assign(b, { x: fightBox.x, y: player.y, speedX: 3 });
-  bullets.push(b);
+  const corner = robotCorners[robotCornerIndex % robotCorners.length];
+  robotCornerIndex++;
+
+  const dx = canvas.width / 2 - corner.x;
+  const dy = fightBox.y + fightBox.height / 2 - corner.y;
+  const mag = Math.sqrt(dx * dx + dy * dy);
+  const speed = 3;
+
+  bullets.push({
+    x: corner.x,
+    y: corner.y,
+    width: 30,
+    height: 30,
+    speedX: dx / mag * speed,
+    speedY: dy / mag * speed,
+    robotExplode: true // 🚨 로봇 전용 속성
+  });
 }
 
+function explodeFireBullet(bullet) {
+  const centerX = bullet.x + bullet.width / 2;
+  const centerY = bullet.y + bullet.height / 2;
+
+  const angleCount = 6;
+  for (let i = 0; i < angleCount; i++) {
+    const angle = (Math.PI * 2 / angleCount) * i;
+    const speed = 2 + Math.random() * 0.5;
+
+    bullets.push({
+      x: centerX,
+      y: centerY,
+      width: 8,
+      height: 8,
+      speedX: Math.cos(angle) * speed,
+      speedY: Math.sin(angle) * speed
+    });
+  }
+
+  // 💥 효과 시작
+  screenShake = 5;
+  flashTimer = 5;
+}
+
+
+function updateBullets() {
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+
+    if (b.speedX) b.x += b.speedX;
+    if (b.speedY) b.y += b.speedY;
+
+    // 로봇 폭발 처리
+    if (b.robotExplode) {
+      const hitWall =
+        b.x <= fightBox.x || b.x + b.width >= fightBox.x + fightBox.width ||
+        b.y <= fightBox.y || b.y + b.height >= fightBox.y + fightBox.height;
+
+      if (hitWall) {
+        explodeRobotBullet(b);
+        bullets.splice(i, 1);
+        continue;
+      }
+    }
+
+    // 🔥 불꽃 폭발 처리: 위쪽 벽에 닿으면
+    if (b.fireExplode && b.y <= fightBox.y) {
+      explodeFireBullet(b);
+      bullets.splice(i, 1);
+      continue;
+    }
+  }
+}
+
+
+function explodeRobotBullet(bullet) {
+  const centerX = bullet.x + bullet.width / 2;
+  const centerY = bullet.y + bullet.height / 2;
+
+  const angleCount = 10;
+  const spinMode = robotSpinPattern[robotSpinIndex % robotSpinPattern.length];
+  robotSpinIndex++;
+
+  for (let i = 0; i < angleCount; i++) {
+    const baseAngle = (Math.PI * 2 / angleCount) * i;
+    const actualAngle = spinMode === "cw" ? baseAngle : (Math.PI * 2 - baseAngle);
+    
+    // 🔥 속도: 1.2 ~ 1.5배 랜덤
+    const speedMultiplier = 1.2 + Math.random() * 0.3;
+
+    bullets.push({
+      x: centerX,
+      y: centerY,
+      width: 8,
+      height: 8,
+      speedX: Math.cos(actualAngle) * 2 * speedMultiplier,
+      speedY: Math.sin(actualAngle) * 2 * speedMultiplier
+    });
+  }
+}
+
+
+
+
+
 // 추가 변수 및 초기 상태
+let screenShake = 0;
+let flashTimer = 0;
 let currentEnemyIndex = 0;
 let enemy = enemies[currentEnemyIndex];
 let tick = 0;
@@ -175,9 +307,40 @@ let attackDuration = 300;
 let isAttackGaugeActive = false;
 let gaugeX = 0;
 let gaugeDir = 4;
+let robotSpinIndex = 0;
+const robotSpinPattern = ["cw", "ccw", "cw", "cw", "ccw", "ccw"];
 
+let robotCornerIndex = 0;
+const robotCorners = [
+  { x: fightBox.x, y: fightBox.y },
+  { x: fightBox.x + fightBox.width, y: fightBox.y },
+  { x: fightBox.x + fightBox.width, y: fightBox.y + fightBox.height },
+  { x: fightBox.x, y: fightBox.y + fightBox.height }
+];
+
+// 1. 중복 update() 방지용 상태 추가
+let isGameRunning = false;
 function update() {
+  if (!isGameRunning) return;
   tick++;
+
+  // 💥 깜빡임 배경
+  if (flashTimer > 0) {
+    canvas.style.backgroundColor = (flashTimer % 2 === 0) ? "darkred" : "black";
+    flashTimer--;
+  } else {
+    canvas.style.backgroundColor = "black";
+  }
+
+  // 💥 흔들림 적용
+  if (screenShake > 0) {
+    const dx = (Math.random() - 0.5) * 10;
+    const dy = (Math.random() - 0.5) * 10;
+    ctx.save();
+    ctx.translate(dx, dy);
+    screenShake--;
+  }
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawFightBox();
   movePlayer();
@@ -199,7 +362,17 @@ function update() {
   }
 
   drawUI();
-  if (!gameOver) requestAnimationFrame(update);
+
+  if (screenShake > 0) {
+    ctx.restore(); // 흔들림 해제
+  }
+
+  if (gameOver) {
+    isGameRunning = false;
+    return;
+  }
+
+  requestAnimationFrame(update);
 }
 
 function drawFightBox() {
@@ -220,15 +393,7 @@ function drawBullets() {
   bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
 }
 
-function updateBullets() {
-  bullets.forEach(b => {
-    if (b.horizontal) b.x += b.speedX;
-    else {
-      if (b.speedX) b.x += b.speedX;
-      if (b.speedY) b.y += b.speedY;
-    }
-  });
-}
+
 
 function detectCollision(a, b) {
   return a.x < b.x + b.width &&
@@ -319,30 +484,64 @@ function drawHealthBar(x, y, width, height, current, max, color) {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (["z", "x", "c", " ", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "a", "s", "d", "w"].includes(e.key)) {
+  if (["z", "x", "c", " ", "p", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "a", "s", "d", "w"].includes(e.key)) {
     e.preventDefault();
   }
   keys[e.key] = true;
 
+  // 게임 재시작
   if (gameOver && e.key === " ") {
-    e.preventDefault();
-    currentEnemyIndex = 0;
-    enemy = enemies[currentEnemyIndex];
+  currentEnemyIndex = 0;
+  enemy = enemies[currentEnemyIndex];
+  player.hp = player.maxHp;
+  player.items = 10;
+  gameOver = false;
+  gameWon = false;
+  bullets.length = 0;
+  turn = "player";
+  isAttackGaugeActive = false;
+  gaugeX = 0;
+  tick = 0;
+
+  // ✅ 안전하게 루프 재시작
+  isGameRunning = false;
+  startGameLoop();
+  return;
+}
+
+
+  // 공격 평가
+  if (isAttackGaugeActive && (e.key === " " || e.key === "Enter" || e.key === "z")) {
+    evaluateAttack();
+  }
+// 적 선택 기능 (P 키)
+if (e.key.toLowerCase() === "p" && turn === "player" && !isAttackGaugeActive) {
+  const input = prompt("Enter enemy index (0 ~ " + (enemies.length - 1) + "):");
+  const index = parseInt(input);
+  if (!isNaN(index) && index >= 0 && index < enemies.length) {
+    currentEnemyIndex = index;
+    enemy = enemies[index];
+    enemy.hp = enemy.maxHp;
     player.hp = player.maxHp;
-    player.items = 10;
+    bullets.length = 0;
     gameOver = false;
     gameWon = false;
-    bullets.length = 0;
     turn = "player";
     isAttackGaugeActive = false;
     gaugeX = 0;
     tick = 0;
-    update();
-    return;
+
+    // ✅ 이 줄을 먼저 실행해야 중첩 방지됨
+    if (!isGameRunning) {
+      isGameRunning = true;
+      update();
+    }
   }
+  return;
+}
 
-  if (isAttackGaugeActive && (e.key === " " || e.key === "Enter" || e.key === "z")) evaluateAttack();
 
+  // 기본 전투 조작 (Z/X/C)
   if (turn === "player" && !gameOver && !isAttackGaugeActive) {
     if (e.key === "z") {
       isAttackGaugeActive = true;
@@ -364,7 +563,7 @@ document.addEventListener("keydown", (e) => {
           return;
         } else {
           enemy = enemies[currentEnemyIndex];
-  enemy.hp = enemy.maxHp;
+          enemy.hp = enemy.maxHp;
           player.hp = player.maxHp;
         }
       }
