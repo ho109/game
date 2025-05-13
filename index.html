@@ -22,7 +22,8 @@ const player = {
 
 const imagePaths = [
   "images/slime.png", "images/bat.png", "images/skel.png", "images/gob.png",
-  "images/wolf.png", "images/wizaed.png", "images/robot.png", "images/fireeee.png"
+  "images/wolf.png", "images/wizaed.png", "images/robot.png", "images/fireeee.png",
+  "images/slime.png" // 거대 슬라임도 동일 이미지 사용
 ];
 
 const enemies = [
@@ -33,7 +34,8 @@ const enemies = [
   { name: "늑대", maxHp: 20, hp: 20, atk: 4, pattern: () => spawnAlternatingTopBottomBullets(), img: new Image(), frameCount: 1 },
   { name: "마법사", maxHp: 25, hp: 25, atk: 3, pattern: () => spawnSpiralBullets(), img: new Image(), frameCount: 1 },
   { name: "로봇", maxHp: 30, hp: 30, atk: 4, pattern: () => spawnBigDirectionalSquares(), img: new Image(), frameCount: 1 },
-  { name: "불", maxHp: 35, hp: 35, atk: 5, pattern: () => spawnRisingBullets(), img: new Image(), frameCount: 1 }
+  { name: "불", maxHp: 35, hp: 35, atk: 5, pattern: () => spawnRisingBullets(), img: new Image(), frameCount: 1 },
+  { name: "거대 슬라임", maxHp: 80, hp: 80, atk: 7, pattern: () => spawnBouncingBullets(), img: new Image(), frameCount: 1, scale: 2 }
 ];
 
 let imagesLoaded = 0;
@@ -61,7 +63,16 @@ function drawEnemyImage() {
   const img = enemy.img;
   if (img && img.complete) {
     const sway = Math.sin(tick / 20) * 5;
-    ctx.drawImage(img, canvas.width / 2 - 32 + sway, 70, 64, 64);
+    const scale = enemy.scale || 1; // 없으면 기본 1배
+    const width = 64 * scale;
+    const height = 64 * scale;
+    ctx.drawImage(
+      img,
+      canvas.width / 2 - width / 2 + sway,
+      70 - (scale - 1) * 32, // 아래로 내려가는 걸 방지
+      width,
+      height
+    );
   }
 }
 
@@ -230,7 +241,6 @@ function explodeFireBullet(bullet) {
   flashTimer = 5;
 }
 
-
 function updateBullets() {
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
@@ -238,7 +248,19 @@ function updateBullets() {
     if (b.speedX) b.x += b.speedX;
     if (b.speedY) b.y += b.speedY;
 
-    // 로봇 폭발 처리
+    // ✅ 벽 튕김 로직
+    if (b.bounce) {
+      if (b.x <= fightBox.x || b.x + b.width >= fightBox.x + fightBox.width) {
+        b.speedX *= -1;
+        b.x = Math.max(fightBox.x, Math.min(b.x, fightBox.x + fightBox.width - b.width)); // 위치 보정
+      }
+      if (b.y <= fightBox.y || b.y + b.height >= fightBox.y + fightBox.height) {
+        b.speedY *= -1;
+        b.y = Math.max(fightBox.y, Math.min(b.y, fightBox.y + fightBox.height - b.height));
+      }
+    }
+
+    // 기타 패턴 (예: 폭발, 로봇 등)
     if (b.robotExplode) {
       const hitWall =
         b.x <= fightBox.x || b.x + b.width >= fightBox.x + fightBox.width ||
@@ -251,12 +273,29 @@ function updateBullets() {
       }
     }
 
-    // 🔥 불꽃 폭발 처리: 위쪽 벽에 닿으면
-    if (b.fireExplode && b.y <= fightBox.y) {
+    if (b.fireExplode && b.y + b.height <= fightBox.y) {
       explodeFireBullet(b);
       bullets.splice(i, 1);
       continue;
     }
+  }
+}
+
+
+function spawnBouncingBullets() {
+  const count = 20;
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 2 + Math.random() * 1.5;
+    bullets.push({
+      x: fightBox.x + fightBox.width / 2,
+      y: fightBox.y + fightBox.height / 2,
+      width: 6,
+      height: 6,
+      speedX: Math.cos(angle) * speed,
+      speedY: Math.sin(angle) * speed,
+      bounce: true // 벽 반사 속성
+    });
   }
 }
 
