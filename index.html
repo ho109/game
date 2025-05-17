@@ -112,19 +112,11 @@ const imagePaths = [
 const enemies = [
   { name: "슬라임", maxHp: 10, hp: 10, atk: 1, pattern: () => spawnSlimeCornerSplits(), coin: 2, img: Object.assign(new Image(), { src: 'image/slime.png' }) },
   { name: "박쥐", maxHp: 12, hp: 12, atk: 2, pattern: () => spawnSideBullets(3), coin: 3, img: Object.assign(new Image(), { src: 'image/bat.png' }) },
-<<<<<<< HEAD
-  { name: "해골 궁수", maxHp: 15, hp: 15, atk: 3, pattern: () => spawnDiagonalBulletsFromTopRight(), coin: 7, img: Object.assign(new Image(), { src: 'image/skel.png' }) },
-  { name: "해골 머리", maxHp: 18, hp: 18, atk: 3, pattern: () => spawnRandomBullets(6), coin: 8, img: Object.assign(new Image(), { src: 'image/skull.png' }) },
-  { name: "거대 슬라임", maxHp: 80, hp: 80, atk: 2, pattern: () => spawnBouncingBullets(), coin: 15, img: Object.assign(new Image(), { src: 'image/king_slime.png' }), scale: 2 },
-  { name: "고블린 상점", maxHp: 9999, hp: 9999, atk: 0, pattern: () => {}, coin: 0, img: Object.assign(new Image(), { src: 'image/gob_shop.png' }) },
-  { name: "로봇", maxHp: 30, hp: 30, atk: 3, pattern: () => spawnModifiedRobotBullets(), coin: 9, img: Object.assign(new Image(), { src: 'image/robot.png' }) },
-=======
   { name: "해골 궁수", maxHp: 15, hp: 15, atk: 3, pattern: () => spawnDiagonalBulletsFromTopRight(), coin: 5, img: Object.assign(new Image(), { src: 'image/skel.png' }) },
   { name: "해골 머리", maxHp: 18, hp: 18, atk: 3, pattern: () => spawnRandomBullets(6), coin: 5, img: Object.assign(new Image(), { src: 'image/skull.png' }) },
   { name: "거대 슬라임", maxHp: 80, hp: 80, atk: 2, pattern: () => spawnBouncingBullets(), coin: 7, img: Object.assign(new Image(), { src: 'image/king_slime.png' }), scale: 2 },
   { name: "고블린 상점", maxHp: 9999, hp: 9999, atk: 0, pattern: () => {}, coin: 0, img: Object.assign(new Image(), { src: 'image/gob_shop.png' }) },
   { name: "로봇", maxHp: 30, hp: 30, atk: 3, pattern: () => spawnModifiedRobotBullets(), coin: 8, img: Object.assign(new Image(), { src: 'image/robot.png' }) },
->>>>>>> 49650375ee0e128098397fa411783e85e5f8ae51
   { name: "마법사..?", maxHp: 25, hp: 25, atk: 2, pattern: () => spawnSpiralBullets(), coin: 0, img: Object.assign(new Image(), { src: 'image/weezered.png' }) },
   { name: "진짜 마법사", maxHp: 40, hp: 40, atk: 3, pattern: () => realWizardPattern(), coin: 15, img: Object.assign(new Image(), { src: 'image/real_wizard.png' }) },
   { name: "고블린 상점", maxHp: 9999, hp: 9999, atk: 0, pattern: () => {}, coin: 0, img: Object.assign(new Image(), { src: 'image/gob_shop.png' }) },
@@ -717,13 +709,12 @@ function drawUI() {
   ctx.font = "16px Arial";
   ctx.fillStyle = "white";
   ctx.textAlign = "left";
-  ctx.fillText("🪙 " + coins + "g", 20, 505);        // 체력바 위
-  ctx.fillText("🧪 " + player.items, 110, 505);      // 아이템 옆에
-
-
+ 
   // 보유 골드: 체력바 위로 이동
   ctx.font = "14px Arial";
-  ctx.fillText("🪙 " + coins + "g", 20, 490);
+  ctx.fillText("🧪 아이템: " + player.items, 20, 470);  // ← 아이템 수 먼저 표시
+  ctx.fillText("🪙 " + coins + "g", 20, 485);            // ← 기존 코인 표시
+
 
   // 게임오버 표시
   if (gameOver) {
@@ -839,31 +830,34 @@ document.addEventListener("keydown", (e) => {
   
 
   // ✅ 게임 재시작
-  if (gameOver && e.key === " ") {
-    if (animationFrameId !== null) {
-      cancelAnimationFrame(animationFrameId);
-      animationFrameId = null;
-    }
-
-    currentEnemyIndex = 0;
-    enemy = enemies[currentEnemyIndex];
-    player.hp = player.maxHp;
-    player.items = 10;
-    coins = 0;
-    gameOver = false;
-    gameWon = false;
-    bullets.length = 0;
-    turn = "player";
-    isAttackGaugeActive = false;
-    gaugeX = 0;
-    tick = 0;
-    robotWarnings = [];
-    robotWarnTimer = 0;
-    isInShop = false;
-
-    startGameLoop();
-    return;
+  // ✅ 게임 재시작
+if (gameOver && e.key === " ") {
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
   }
+
+   currentEnemyIndex = 0;
+   enemy = enemies[currentEnemyIndex];
+   player.hp = player.maxHp;
+   player.items = 10;
+   coins = 0;
+   playerAttackPower = 1; // ✅ 무기 강화 초기화
+   gameOver = false;
+   gameWon = false;
+   bullets.length = 0;
+   turn = "player";
+   isAttackGaugeActive = false;
+   gaugeX = 0;
+   tick = 0;
+   robotWarnings = [];
+   robotWarnTimer = 0;
+   isInShop = false;
+
+   startGameLoop();
+   return;
+ }
+
 
   // ✅ 상점 처리
   if (isInShop) {
