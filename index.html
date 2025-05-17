@@ -96,27 +96,29 @@ let screenShake = 0;
 let flashTimer = 0;
 
 const imagePaths = [
-  "image/slime.png",
-  "image/bat.png",
-  "image/skel.png",
-  "image/skull.png",
-  "image/king_slime.png",
-  "image/robot.png",
-  "image/weezered.png",
-  "image/real_wizard.png",
-  "image/gob_shop.png",
-  "image/fire.png"
+  "image/slime.png",        // 0
+  "image/bat.png",          // 1
+  "image/skel.png",         // 2
+  "image/skull.png",        // 3
+  "image/king_slime.png",   // 4
+  "image/gob_shop.png",     // ✅ 고블린 상점 1
+  "image/robot.png",        // 6
+  "image/weezered.png",     // 7
+  "image/real_wizard.png",  // 8
+  "image/gob_shop.png",     // ✅ 고블린 상점 2
+  "image/fire.png"          // 10
 ];
 
 const enemies = [
-  { name: "슬라임", maxHp: 10, hp: 10, atk: 1, pattern: () => spawnSlimeCornerSplits(), coin: 1, img: Object.assign(new Image(), { src: 'image/slime.png' }) },
+  { name: "슬라임", maxHp: 10, hp: 10, atk: 1, pattern: () => spawnSlimeCornerSplits(), coin: 2, img: Object.assign(new Image(), { src: 'image/slime.png' }) },
   { name: "박쥐", maxHp: 12, hp: 12, atk: 2, pattern: () => spawnSideBullets(3), coin: 3, img: Object.assign(new Image(), { src: 'image/bat.png' }) },
   { name: "해골 궁수", maxHp: 15, hp: 15, atk: 3, pattern: () => spawnDiagonalBulletsFromTopRight(), coin: 5, img: Object.assign(new Image(), { src: 'image/skel.png' }) },
-  { name: "해골 머리", maxHp: 18, hp: 18, atk: 3, pattern: () => spawnRandomBullets(6), coin: 7, img: Object.assign(new Image(), { src: 'image/skull.png' }) },
-  { name: "거대 슬라임", maxHp: 80, hp: 80, atk: 2, pattern: () => spawnBouncingBullets(), coin: 15, img: Object.assign(new Image(), { src: 'image/king_slime.png' }), scale: 2 },
-  { name: "로봇", maxHp: 30, hp: 30, atk: 3, pattern: () => spawnModifiedRobotBullets(), coin: 9, img: Object.assign(new Image(), { src: 'image/robot.png' }) },
+  { name: "해골 머리", maxHp: 18, hp: 18, atk: 3, pattern: () => spawnRandomBullets(6), coin: 5, img: Object.assign(new Image(), { src: 'image/skull.png' }) },
+  { name: "거대 슬라임", maxHp: 80, hp: 80, atk: 2, pattern: () => spawnBouncingBullets(), coin: 7, img: Object.assign(new Image(), { src: 'image/king_slime.png' }), scale: 2 },
+  { name: "고블린 상점", maxHp: 9999, hp: 9999, atk: 0, pattern: () => {}, coin: 0, img: Object.assign(new Image(), { src: 'image/gob_shop.png' }) },
+  { name: "로봇", maxHp: 30, hp: 30, atk: 3, pattern: () => spawnModifiedRobotBullets(), coin: 8, img: Object.assign(new Image(), { src: 'image/robot.png' }) },
   { name: "마법사..?", maxHp: 25, hp: 25, atk: 2, pattern: () => spawnSpiralBullets(), coin: 0, img: Object.assign(new Image(), { src: 'image/weezered.png' }) },
-  { name: "진짜 마법사", maxHp: 40, hp: 40, atk: 3, pattern: () => realWizardPattern(), coin: 30, img: Object.assign(new Image(), { src: 'image/real_wizard.png' }) },
+  { name: "진짜 마법사", maxHp: 40, hp: 40, atk: 3, pattern: () => realWizardPattern(), coin: 15, img: Object.assign(new Image(), { src: 'image/real_wizard.png' }) },
   { name: "고블린 상점", maxHp: 9999, hp: 9999, atk: 0, pattern: () => {}, coin: 0, img: Object.assign(new Image(), { src: 'image/gob_shop.png' }) },
   { name: "불", maxHp: 35, hp: 35, atk: 5, pattern: () => spawnRisingBullets(), coin: 20, img: Object.assign(new Image(), { src: 'image/fire.png' }) }
 ];
@@ -207,21 +209,21 @@ function update() {
       robotWarnings.forEach(pos => {
         const cx = pos.x;
         const cy = pos.y;
-        const count = 12;
+        const count = 8;
         for (let i = 0; i < count; i++) {
           const angle = (Math.PI * 2 * i) / count;
           bullets.push({
             x: cx,
             y: cy,
-            width: 10,
-            height: 10,
+            width: 8,
+            height: 8,
             speedX: Math.cos(angle) * 2.5,
             speedY: Math.sin(angle) * 2.5
           });
         }
       });
       screenShake = 6;
-      flashTimer = 10;
+      flashTimer = 5;
       robotWarnings = [];
     }
   }
@@ -423,7 +425,7 @@ function spawnDelayedBlastCross() {
 
 
 function spawnSideBullets(count = 2) {
-  if (tick % 15 !== 0) return; // 발사 시간 조정정
+  if (tick % 20 !== 0) return; // 발사 시간 조정정
   for (let i = 0; i < count; i++) {
     bullets.push({
       x: i % 2 === 0 ? fightBox.x : fightBox.x + fightBox.width,
@@ -705,8 +707,11 @@ function drawUI() {
   // 플레이어 체력 바 및 UI
   drawHealthBar(20, 520, 150, 15, player.hp, player.maxHp, "lime");
   ctx.font = "16px Arial";
+  ctx.fillStyle = "white";
   ctx.textAlign = "left";
-  ctx.fillText(text.itemsLabel[language] + player.items, 20, 505);
+  ctx.fillText("🪙 " + coins + "g", 20, 505);        // 체력바 위
+  ctx.fillText("🧪 " + player.items, 110, 505);      // 아이템 옆에
+
 
   // 보유 골드: 체력바 위로 이동
   ctx.font = "14px Arial";
@@ -788,9 +793,8 @@ function updatePlayerMovement() {
   if ((keys["ArrowDown"] || keys["s"]) && player.y + player.height < fightBox.y + fightBox.height)
     player.y += player.speed;
 }
-
 document.addEventListener("keydown", (e) => {
-  const preventList = ["z", "x", "c", " ", "p", "Enter"];
+  const preventList = ["z", "x", "c", " ", "p", "o", "Enter"];
   if (preventList.includes(e.key)) e.preventDefault();
 
   keys[e.key] = true;
@@ -824,6 +828,7 @@ document.addEventListener("keydown", (e) => {
     }
     return;
   }
+  
 
   // ✅ 게임 재시작
   if (gameOver && e.key === " ") {
@@ -877,7 +882,10 @@ document.addEventListener("keydown", (e) => {
     }
     return;
   }
-
+  if (e.key.toLowerCase() === "o") {
+  coins++;
+  return;
+}
   // ✅ 공격 평가
   if (isAttackGaugeActive && [" ", "Enter", "z"].includes(e.key)) {
     evaluateAttack();
@@ -895,21 +903,24 @@ document.addEventListener("keydown", (e) => {
       turn = "enemy";
       attackTimer = attackDuration;
       bullets.length = 0;
-    } else if (e.key === "c") { // 🔧 FIXED: 정확한 위치
+    } else if (e.key === "c") {
       player.hp -= Math.floor(player.maxHp / 4);
       enemy.hp -= Math.floor(enemy.maxHp / 3);
+      
       if (enemy.hp <= 0) {
+        coins += enemy.coin || 0; // ✅ 코인 획득 적용
         currentEnemyIndex++;
         if (currentEnemyIndex >= enemies.length) {
           gameOver = true;
           gameWon = true;
           return;
-        } else {
-          enemy = enemies[currentEnemyIndex];
-          enemy.hp = enemy.maxHp;
-          player.hp = player.maxHp;
-        }
-      }
+         } else {
+         enemy = enemies[currentEnemyIndex];
+         enemy.hp = enemy.maxHp;
+     player.hp = player.maxHp;
+    isInShop = (enemy.name === "고블린 상점"); // ✅ 꼭 추가
+  }
+}
       turn = "enemy";
       attackTimer = attackDuration;
       bullets.length = 0;
