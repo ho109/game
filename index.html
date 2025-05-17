@@ -200,6 +200,32 @@ function update() {
   drawBullets();
   updatePlayerMovement();
 
+  // ✅ 로봇 경고 후 폭발형 탄막
+  if (robotWarnings.length > 0) {
+    robotWarnTimer--;
+    if (robotWarnTimer <= 0) {
+      robotWarnings.forEach(pos => {
+        const cx = pos.x;
+        const cy = pos.y;
+        const count = 12;
+        for (let i = 0; i < count; i++) {
+          const angle = (Math.PI * 2 * i) / count;
+          bullets.push({
+            x: cx,
+            y: cy,
+            width: 10,
+            height: 10,
+            speedX: Math.cos(angle) * 2.5,
+            speedY: Math.sin(angle) * 2.5
+          });
+        }
+      });
+      screenShake = 6;
+      flashTimer = 10;
+      robotWarnings = [];
+    }
+  }
+
   if (!gameOver && turn === "enemy") {
     enemy.pattern();
     updateBullets();
@@ -258,7 +284,6 @@ function spawnModifiedRobotBullets() {
 }
 
 
-
 function spawnSpiralBullets() {
   if (tick % 30 !== 0) return;
   const angleCount = 12;
@@ -276,15 +301,13 @@ function spawnSpiralBullets() {
     });
   }
 }
-
 function realWizardPattern() {
-  if (!enemy.patternIndex) enemy.patternIndex = 0;
-  if (!enemy.patternTimer) enemy.patternTimer = 0;
+  if (enemy.patternIndex === undefined) enemy.patternIndex = 0;
+  if (enemy.patternTimer === undefined) enemy.patternTimer = 0;
 
   const stage = enemy.patternIndex;
   const timer = enemy.patternTimer;
 
-  // 각 패턴은 300 tick (5초) 지속 후 전환
   if (timer === 0) bullets.length = 0;
 
   if (stage === 0) spawnMeteorExplosions();
@@ -298,12 +321,10 @@ function realWizardPattern() {
     enemy.patternIndex++;
     enemy.patternTimer = 0;
 
-    // 4패턴 후 회복 & 이펙트
     if (enemy.patternIndex > 3) {
       enemy.patternIndex = 0;
       if (enemy.hp > 0) {
         enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.floor(enemy.maxHp / 3));
-        // 🎇 회복 이펙트 트리거
         flashTimer = 15;
         screenShake = 8;
       }
