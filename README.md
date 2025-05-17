@@ -8,3 +8,7 @@ Click the "pixel" link above to play and try out the game!
   
 Press the z key to start. (caps lock off)  
 z를 눌러 게임을 시작하세요. (caps lock은 꺼주세요)
+
+wasd / 방향키 (arrow key) to move
+p key = choose mob
+space key = restart
