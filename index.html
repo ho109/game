@@ -50,8 +50,8 @@ const text = {
     en: "Goblin Shop 🪙"
   },
   shopItems: {
-    ko: ["아이템 (10g)", "무기   (10g)"],
-    en: ["Item (10g)", "Weapon (10g)"]
+    ko: ["아이템 (5g)", "무기 (5g)"],
+    en: ["Item (5g)", "Weapon (5g)"]
   },
   shopInstruction: {
     ko: "Z: 구매 | C: 나가기",
@@ -149,13 +149,13 @@ imagePaths.forEach((path, index) => {
 
 function applyDifficultyStats(enemy) {
   let factor = 1;
-
   if (difficulty === "easy") factor = 0.7;
   else if (difficulty === "normal") factor = 0.9;
   else if (difficulty === "hard") factor = 1.3;
 
-  enemy.hp = Math.round(enemy.maxHp * factor);
-  enemy.atk = Math.max(1, Math.round(enemy.atk * factor)); // 최소 1로 방어
+  enemy.maxHp = Math.round(enemy.maxHp * factor);  // ✅ maxHp도 조정
+  enemy.hp = enemy.maxHp;
+  enemy.atk = Math.max(1, Math.round(enemy.atk * factor));
 }
 
 
