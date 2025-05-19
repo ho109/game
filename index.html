@@ -7,6 +7,8 @@
     body { margin: 0; overflow: hidden; background: black; color: white; }
     canvas { display: block; margin: 0 auto; background: #222; border: 3px solid white; }
   </style>
+  <!-- ✅ favicon 404 방지 -->
+  <link rel="icon" href="data:;base64,=">
 </head>
 <body>
 <canvas id="gameCanvas" width="500" height="550"></canvas>
@@ -94,6 +96,11 @@ let language = "ko";
 let animationFrameId = null; // 루프 추적용
 let screenShake = 0;
 let flashTimer = 0;
+let difficulty = "normal";
+let difficultyMenuActive = true;
+let difficultyOptions = ["easy", "normal", "hard"];
+let selectedDifficultyIndex = 1;
+let cheatUnlocked = false;
 
 const imagePaths = [
   "image/slime.png",        // 0
@@ -110,17 +117,17 @@ const imagePaths = [
 ];
 
 const enemies = [
-  { name: "슬라임", maxHp: 10, hp: 10, atk: 1, pattern: () => spawnSlimeCornerSplits(), coin: 2, img: Object.assign(new Image(), { src: 'image/slime.png' }) },
-  { name: "박쥐", maxHp: 12, hp: 12, atk: 2, pattern: () => spawnSideBullets(3), coin: 3, img: Object.assign(new Image(), { src: 'image/bat.png' }) },
-  { name: "해골 궁수", maxHp: 15, hp: 15, atk: 3, pattern: () => spawnDiagonalBulletsFromTopRight(), coin: 5, img: Object.assign(new Image(), { src: 'image/skel.png' }) },
-  { name: "해골 머리", maxHp: 18, hp: 18, atk: 3, pattern: () => spawnRandomBullets(6), coin: 5, img: Object.assign(new Image(), { src: 'image/skull.png' }) },
-  { name: "거대 슬라임", maxHp: 80, hp: 80, atk: 2, pattern: () => spawnBouncingBullets(), coin: 7, img: Object.assign(new Image(), { src: 'image/king_slime.png' }), scale: 2 },
-  { name: "고블린 상점", maxHp: 9999, hp: 9999, atk: 0, pattern: () => {}, coin: 0, img: Object.assign(new Image(), { src: 'image/gob_shop.png' }) },
-  { name: "로봇", maxHp: 30, hp: 30, atk: 3, pattern: () => spawnModifiedRobotBullets(), coin: 8, img: Object.assign(new Image(), { src: 'image/robot.png' }) },
-  { name: "마법사..?", maxHp: 25, hp: 25, atk: 2, pattern: () => spawnSpiralBullets(), coin: 0, img: Object.assign(new Image(), { src: 'image/weezered.png' }) },
-  { name: "진짜 마법사", maxHp: 40, hp: 40, atk: 3, pattern: () => realWizardPattern(), coin: 15, img: Object.assign(new Image(), { src: 'image/real_wizard.png' }) },
-  { name: "고블린 상점", maxHp: 9999, hp: 9999, atk: 0, pattern: () => {}, coin: 0, img: Object.assign(new Image(), { src: 'image/gob_shop.png' }) },
-  { name: "불", maxHp: 35, hp: 35, atk: 5, pattern: () => spawnRisingBullets(), coin: 20, img: Object.assign(new Image(), { src: 'image/fire.png' }) }
+  { nameKo: "슬라임", nameEn: "Slime", maxHp: 10, atk: 1, coin: 2, pattern: () => spawnSlimeCornerSplits(), img: new Image() },
+  { nameKo: "박쥐", nameEn: "Bat", maxHp: 12, atk: 2, coin: 3, pattern: () => spawnSideBullets(3), img: new Image() },
+  { nameKo: "해골 궁수", nameEn: "Skeleton Archer", maxHp: 15, atk: 3, coin: 5, pattern: () => spawnDiagonalBulletsFromTopRight(), img: new Image() },
+  { nameKo: "해골 머리", nameEn: "Skull", maxHp: 18, atk: 3, coin: 5, pattern: () => spawnRandomBullets(6), img: new Image() },
+  { nameKo: "거대 슬라임", nameEn: "King Slime", maxHp: 80, atk: 2, coin: 7, pattern: () => spawnBouncingBullets(), scale: 2, img: new Image() },
+  { nameKo: "고블린 상점", nameEn: "Goblin Shop", maxHp: 9999, atk: 0, coin: 0, pattern: () => {}, img: new Image() },
+  { nameKo: "로봇", nameEn: "Robot", maxHp: 30, atk: 3, coin: 8, pattern: () => spawnModifiedRobotBullets(), img: new Image() },
+  { nameKo: "마법사..?", nameEn: "Wizard..?", maxHp: 25, atk: 2, coin: 0, pattern: () => spawnSpiralBullets(), img: new Image() },
+  { nameKo: "진짜 마법사", nameEn: "Real Wizard", maxHp: 40, atk: 3, coin: 15, pattern: () => realWizardPattern(), img: new Image() },
+  { nameKo: "고블린 상점", nameEn: "Goblin Shop", maxHp: 9999, atk: 0, coin: 0, pattern: () => {}, img: new Image() },
+  { nameKo: "불", nameEn: "Fire", maxHp: 35, atk: 5, coin: 20, pattern: () => spawnRisingBullets(), img: new Image() }
 ];
 
 imagePaths.forEach((path, index) => {
@@ -128,14 +135,32 @@ imagePaths.forEach((path, index) => {
   img.src = path;
   img.onload = () => {
     enemies[index].img = img;
+
+    // 마지막 이미지 로딩 완료 후 적 설정
     if (index === imagePaths.length - 1) {
       enemy = enemies[currentEnemyIndex];
-      if (!isGameRunning) {            // ✅ 반드시 중복 방지
-        startGameLoop();
+      // ✅ 루프 시작은 무조건 update만 돌림
+      if (animationFrameId === null) {
+        animationFrameId = requestAnimationFrame(update);
       }
     }
   };
 });
+
+function applyDifficultyStats(enemy) {
+  let factor = 1;
+  if (difficulty === "easy") factor = 0.8;
+  if (difficulty === "hard") factor = 1.3;
+
+  enemy.hp = Math.round(enemy.maxHp * factor);
+  enemy.atk = Math.round(enemy.atk * factor);
+}
+
+function resetPlayerStats() {
+  const baseMax = 35;
+  player.maxHp = difficulty === "easy" ? baseMax + 5 : difficulty === "hard" ? baseMax - 5 : baseMax;
+  player.hp = player.maxHp;
+}
 
 function detectCollision(a, b) {
   return (
@@ -145,6 +170,53 @@ function detectCollision(a, b) {
     a.y + a.height > b.y
   );
 }
+
+function drawDifficultyMenu() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.font = "20px Arial";
+  ctx.fillStyle = "white";
+  ctx.textAlign = "center";
+  ctx.fillText(language === "ko" ? "난이도 선택" : "Select Difficulty", canvas.width / 2, 80);
+
+  const howTo = language === "ko"
+    ? ["이동: 화살표 또는 WASD", "Z: 공격", "X: 아이템 사용 (있을 경우에만)", "C: 특수공격"]
+    : ["Move: Arrow keys or WASD", "Z: Attack", "X: Item", "C: Special / Shop"];
+
+  ctx.font = "16px Arial"; //폰트 크기임
+  howTo.forEach((line, i) => {
+    ctx.fillText(line, canvas.width / 2, 120 + i * 24); //폰트 간격임
+  });
+
+  // 엔터 안내 추가
+  ctx.font = "14px Arial";
+  ctx.fillText(language === "ko" ? "엔터를 눌러 시작" : "Press Enter to Start", canvas.width / 2, 450);
+  
+  // 언어 전환 버튼
+  ctx.fillStyle = "white";
+  ctx.fillRect(canvas.width - 90, canvas.height - 50, 70, 30);
+  ctx.fillStyle = "black";
+  ctx.fillText(language === "ko" ? "🇰🇷 한국어" : "🇺🇸 English", canvas.width - 55, canvas.height - 30);
+
+  const labels = {
+    easy:   { ko: "쉬움", en: "Easy" },
+    normal: { ko: "보통", en: "Normal" },
+    hard:   { ko: "어려움", en: "Hard" }
+  };
+
+  difficultyOptions.forEach((key, idx) => {
+    const isSelected = idx === selectedDifficultyIndex;
+    ctx.fillStyle = isSelected ? "lime" : "white";
+    ctx.strokeStyle = "white";
+    ctx.fillRect(150, 230 + idx * 60, 200, 40);
+    ctx.strokeRect(150, 230 + idx * 60, 200, 40);
+    ctx.fillStyle = "black";
+    ctx.fillText(labels[key][language], canvas.width / 2, 260 + idx * 60);
+  });
+}
+
 function drawAttackGauge() {
   if (!isAttackGaugeActive) return;
   const barX = canvas.width / 2 - 150;
@@ -169,13 +241,21 @@ function drawHealthBar(x, y, width, height, current, max, color) {
 }
 
 function startGameLoop() {
-  if (animationFrameId !== null) return; // 이미 실행 중이면 무시
-  isGameRunning = true;
-  animationFrameId = requestAnimationFrame(update);
+  isGameRunning = true; // ✅ 이 부분은 항상 설정되도록
+  if (animationFrameId === null) {
+    animationFrameId = requestAnimationFrame(update);
+  }
 }
 
 function update() {
+  if (!isGameRunning && difficultyMenuActive) {
+    drawDifficultyMenu();
+    animationFrameId = requestAnimationFrame(update);
+    return;
+  }
+
   if (!isGameRunning) return;
+  
   tick++;
 
   // 💥 플래시 이펙트
@@ -640,7 +720,7 @@ function evaluateAttack() {
       enemy = enemies[currentEnemyIndex];
       enemy.hp = enemy.maxHp;
       player.hp = player.maxHp;
-      if (enemy.name === "고블린 상점") {
+      if (enemy.nameKo.includes("고블린") || enemy.nameEn.includes("Goblin")); { 
         isInShop = true;
       }
     }
@@ -668,19 +748,51 @@ function drawBullets() {
   });
 }
 
-// ✅ 전투 박스 및 플레이어 표시, 도움말 클릭 및 언어 전환 기능 추가
 canvas.addEventListener("click", (e) => {
   const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
   const mouseY = e.clientY - rect.top;
 
-  // 도움말 버튼 영역 클릭
-  if (mouseX >= 10 && mouseX <= 190 && mouseY >= canvas.height - 60 && mouseY <= canvas.height - 20) {
+  // ✅ 난이도 메뉴 중일 때 클릭 처리
+  if (difficultyMenuActive) {
+    // 난이도 박스 클릭
+    for (let i = 0; i < difficultyOptions.length; i++) {
+      const y = 230 + i * 60;
+      if (mouseX >= 150 && mouseX <= 350 && mouseY >= y && mouseY <= y + 40) {
+        selectedDifficultyIndex = i;
+      }
+    }
+
+    // 언어 전환 버튼 클릭
+    if (
+      mouseX >= canvas.width - 90 &&
+      mouseX <= canvas.width - 20 &&
+      mouseY >= canvas.height - 50 &&
+      mouseY <= canvas.height - 20
+    ) {
+      language = language === "ko" ? "en" : "ko";
+    }
+
+    return;
+  }
+
+  // ✅ 도움말 토글 클릭 (전투 화면 UI)
+  if (
+    mouseX >= 10 &&
+    mouseX <= 190 &&
+    mouseY >= canvas.height - 60 &&
+    mouseY <= canvas.height - 20
+  ) {
     showHelp = !showHelp;
   }
 
-  // 언어 변경 버튼 클릭
-  if (mouseX >= canvas.width - 80 && mouseX <= canvas.width - 10 && mouseY >= canvas.height - 40 && mouseY <= canvas.height - 10) {
+  // ✅ 언어 전환 버튼 클릭 (전투 중 UI)
+  if (
+    mouseX >= canvas.width - 80 &&
+    mouseX <= canvas.width - 10 &&
+    mouseY >= canvas.height - 40 &&
+    mouseY <= canvas.height - 10
+  ) {
     language = language === "ko" ? "en" : "ko";
   }
 });
@@ -700,7 +812,8 @@ function drawUI() {
   ctx.font = "20px Arial";
   ctx.fillStyle = "white";
   ctx.textAlign = "center";
-  ctx.fillText(enemy.name, canvas.width / 2, 30);
+  ctx.fillText(language === "ko" ? enemy.nameKo : enemy.nameEn, canvas.width / 2, 30);
+
   drawEnemyImage();
   drawHealthBar(canvas.width / 2 - 75, 40, 150, 15, enemy.hp, enemy.maxHp, "red");
 
@@ -727,6 +840,8 @@ function drawUI() {
   }
 
   // 고블린 상점 UI
+  
+  // 고블린 상점 UI
   if (isInShop) {
     ctx.fillStyle = "black";
     ctx.fillRect(50, 250, 400, 130);
@@ -735,11 +850,13 @@ function drawUI() {
     ctx.fillStyle = "white";
     ctx.font = "16px Arial";
     ctx.textAlign = "left";
-    ctx.fillText("🛒 Goblin Shop", 60, 270);
-    ctx.fillText("Z: 강화 (공격력 +1, 5g)", 60, 300);
-    ctx.fillText("X: 아이템 구매 (5g)", 60, 330);
-    ctx.fillText("C: 상점 종료", 60, 360);
+    ctx.fillText(text.shopTitle[language], 60, 270);
+    const shopItems = text.shopItems[language];
+    ctx.fillText("Z: " + shopItems[1], 60, 300); // 무기
+    ctx.fillText("X: " + shopItems[0], 60, 330); // 아이템
+    ctx.fillText(text.shopInstruction[language], 60, 360);
   }
+
 
   drawHelpUI();
   drawRobotWarnings();
@@ -798,7 +915,29 @@ document.addEventListener("keydown", (e) => {
 
   keys[e.key] = true;
 
-  // ✅ P 키: 수동 적 변경
+  // 난이도 선택 메뉴 조작
+  if (difficultyMenuActive) {
+    if (["ArrowUp", "w"].includes(e.key)) {
+      selectedDifficultyIndex = (selectedDifficultyIndex + 2) % 3;
+    }
+    if (["ArrowDown", "s"].includes(e.key)) {
+      selectedDifficultyIndex = (selectedDifficultyIndex + 1) % 3;
+    }
+    if (e.key === "Enter") {
+      difficulty = difficultyOptions[selectedDifficultyIndex];
+      difficultyMenuActive = false;
+      enemy = enemies[currentEnemyIndex];
+      applyDifficultyStats(enemy);
+      resetPlayerStats();
+      startGameLoop();
+    }
+    if (e.key.toLowerCase() === "z") {
+      language = language === "ko" ? "en" : "ko";
+    }
+    return;
+  }
+
+  // 수동 적 변경 (P)
   if (e.key.toLowerCase() === "p" && !isInShop && !gameOver) {
     const input = prompt("Enter enemy index (0 ~ " + (enemies.length - 1) + "):");
     const index = parseInt(input);
@@ -807,11 +946,10 @@ document.addEventListener("keydown", (e) => {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
       }
-
       currentEnemyIndex = index;
       enemy = enemies[currentEnemyIndex];
-      enemy.hp = enemy.maxHp;
-      player.hp = player.maxHp;
+      applyDifficultyStats(enemy);
+      resetPlayerStats();
       bullets.length = 0;
       gameOver = false;
       gameWon = false;
@@ -821,45 +959,40 @@ document.addEventListener("keydown", (e) => {
       tick = 0;
       robotWarnings = [];
       robotWarnTimer = 0;
-      isInShop = (enemy.name === "고블린 상점");
-
+      isInShop = (enemy.nameKo === "고블린 상점");
       startGameLoop();
     }
     return;
   }
-  
 
-  // ✅ 게임 재시작
-  // ✅ 게임 재시작
-if (gameOver && e.key === " ") {
-  if (animationFrameId !== null) {
-    cancelAnimationFrame(animationFrameId);
-    animationFrameId = null;
+  // 게임 재시작 (스페이스)
+  if (gameOver && e.key === " ") {
+    if (animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+    currentEnemyIndex = 0;
+    enemy = enemies[currentEnemyIndex];
+    applyDifficultyStats(enemy);
+    resetPlayerStats();
+    player.items = 10;
+    coins = 0;
+    playerAttackPower = 1;
+    gameOver = false;
+    gameWon = false;
+    bullets.length = 0;
+    turn = "player";
+    isAttackGaugeActive = false;
+    gaugeX = 0;
+    tick = 0;
+    robotWarnings = [];
+    robotWarnTimer = 0;
+    isInShop = false;
+    startGameLoop();
+    return;
   }
 
-   currentEnemyIndex = 0;
-   enemy = enemies[currentEnemyIndex];
-   player.hp = player.maxHp;
-   player.items = 10;
-   coins = 0;
-   playerAttackPower = 1; // ✅ 무기 강화 초기화
-   gameOver = false;
-   gameWon = false;
-   bullets.length = 0;
-   turn = "player";
-   isAttackGaugeActive = false;
-   gaugeX = 0;
-   tick = 0;
-   robotWarnings = [];
-   robotWarnTimer = 0;
-   isInShop = false;
-
-   startGameLoop();
-   return;
- }
-
-
-  // ✅ 상점 처리
+  // 상점 조작
   if (isInShop) {
     if (e.key === "z" && coins >= 5) {
       coins -= 5;
@@ -876,25 +1009,39 @@ if (gameOver && e.key === " ") {
         return;
       }
       enemy = enemies[currentEnemyIndex];
-      enemy.hp = enemy.maxHp;
-      player.hp = player.maxHp;
+      applyDifficultyStats(enemy);
+      resetPlayerStats();
       turn = "enemy";
       attackTimer = attackDuration;
       bullets.length = 0;
     }
     return;
   }
+
+  // 디버그용 코인 증가 (O키 → 비밀번호 인증)
   if (e.key.toLowerCase() === "o") {
-  coins++;
-  return;
-}
-  // ✅ 공격 평가
+    if (!cheatUnlocked) {
+      const input = prompt("비밀번호를 입력하세요:");
+      if (input === "1211") {
+        cheatUnlocked = true;
+        alert("디버그 모드가 활성화되었습니다.");
+      } else {
+        alert("비밀번호가 틀렸습니다.");
+        return;
+      }
+    }
+    coins++;
+    return;
+  }
+
+
+  // 공격 게이지 타이밍 입력
   if (isAttackGaugeActive && [" ", "Enter", "z"].includes(e.key)) {
     evaluateAttack();
     return;
   }
 
-  // ✅ 플레이어 턴 중 조작
+  // 플레이어 턴 조작
   if (turn === "player" && !gameOver && !isAttackGaugeActive) {
     if (e.key === "z") {
       isAttackGaugeActive = true;
@@ -908,21 +1055,20 @@ if (gameOver && e.key === " ") {
     } else if (e.key === "c") {
       player.hp -= Math.floor(player.maxHp / 4);
       enemy.hp -= Math.floor(enemy.maxHp / 3);
-      
       if (enemy.hp <= 0) {
-        coins += enemy.coin || 0; // ✅ 코인 획득 적용
+        coins += enemy.coin || 0;
         currentEnemyIndex++;
         if (currentEnemyIndex >= enemies.length) {
           gameOver = true;
           gameWon = true;
           return;
-         } else {
-         enemy = enemies[currentEnemyIndex];
-         enemy.hp = enemy.maxHp;
-     player.hp = player.maxHp;
-    isInShop = (enemy.name === "고블린 상점"); // ✅ 꼭 추가
-  }
-}
+        } else {
+          enemy = enemies[currentEnemyIndex];
+          applyDifficultyStats(enemy);
+          resetPlayerStats();
+          isInShop = (enemy.nameKo === "고블린 상점");
+        }
+      }
       turn = "enemy";
       attackTimer = attackDuration;
       bullets.length = 0;
@@ -930,7 +1076,57 @@ if (gameOver && e.key === " ") {
   }
 });
 
-document.addEventListener("keyup", (e) => keys[e.key] = false);
+let debugAllowed = sessionStorage.getItem("debugMode") === "true";
+
+// O 키: 인증 또는 코인 증가
+document.addEventListener("keydown", (e) => {
+  const key = e.key.toLowerCase();
+
+  if (key === "o") {
+    if (!debugAllowed) {
+      const pass = prompt("디버그 모드 비밀번호를 입력하세요:");
+      if (pass === "1211") {
+        debugAllowed = true;
+        sessionStorage.setItem("debugMode", "true");
+        alert("디버그 모드가 활성화되었습니다.");
+      } else {
+        alert("비밀번호가 틀렸습니다.");
+      }
+    } else {
+      coins++;
+    }
+    e.preventDefault();
+    return;
+  }
+
+  // 개발자 도구 차단
+  if (!debugAllowed) {
+    const blocked = (
+      e.key === "F12" ||
+      (e.ctrlKey && e.shiftKey && ["I", "i", "J", "j", "C", "c"].includes(e.key)) ||
+      (e.ctrlKey && e.key === "U")
+    );
+    if (blocked) {
+      e.preventDefault();
+      alert("개발자 도구는 사용할 수 없습니다.");
+    }
+  }
+});
+
+// 키 해제 처리
+document.addEventListener("keyup", (e) => {
+  keys[e.key] = false;
+});
+
+// 창 크기로 개발자 도구 감지
+let lastHeight = window.outerHeight;
+setInterval(() => {
+  if (!debugAllowed && window.outerHeight < lastHeight - 100) {
+    alert("개발자 도구 사용이 감지되었습니다.");
+  }
+  lastHeight = window.outerHeight;
+}, 1000);
+
 
 </script>
 </body>
