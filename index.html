@@ -2,26 +2,11 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>턴제전투 게임?(커스텀)</title>
+  <title>턴제전투 게임(커스텀)</title>
   <style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background: black;
-    color: white;
-    font-family: Arial, sans-serif;
-  }
-  canvas {
-    display: block;
-    margin: 0 auto;
-    background: #222;
-    border: 2px solid white;
-    image-rendering: pixelated;
-  }
-</style>
-
-  <!-- ✅ favicon 404 방지 -->
+    body { margin: 0; overflow: hidden; background: black; color: white; }
+    canvas { display: block; margin: 0 auto; background: #222; border: 3px solid white; }
+  </style>
   <link rel="icon" href="data:;base64,=">
 </head>
 <body>
@@ -38,6 +23,7 @@ const player = {
   hp: 35, maxHp: 35, color: "lime", items: 0
 };
 
+//도움말 보기기
 const text = {
   helpToggle: {
     ko: "❓ 도움말 보기 (Z / X / C)",
@@ -163,13 +149,13 @@ imagePaths.forEach((path, index) => {
 
 function applyDifficultyStats(enemy) {
   let factor = 1;
+
   if (difficulty === "easy") factor = 0.7;
   else if (difficulty === "normal") factor = 0.9;
   else if (difficulty === "hard") factor = 1.3;
 
-  enemy.maxHp = Math.round(enemy.maxHp * factor);
-  enemy.hp = enemy.maxHp;
-  enemy.atk = Math.max(1, Math.round(enemy.atk * factor)); // 공격력 최소 1
+  enemy.hp = Math.round(enemy.maxHp * factor);
+  enemy.atk = Math.max(1, Math.round(enemy.atk * factor)); // 최소 1로 방어
 }
 
 
@@ -932,6 +918,48 @@ function updatePlayerMovement() {
   if ((keys["ArrowDown"] || keys["s"]) && player.y + player.height < fightBox.y + fightBox.height)
     player.y += player.speed;
 }
+
+(function () {
+  let devtoolsOpen = false;
+  const element = new Image();
+
+  Object.defineProperty(element, 'id', {
+    get: function () {
+      devtoolsOpen = true;
+      throw new Error("DevTools Detected");
+    }
+  });
+
+  setInterval(function () {
+    devtoolsOpen = false;
+    console.dir(element);
+
+    const devtoolsSizeOpen =
+      window.outerWidth - window.innerWidth > 160 ||
+      window.outerHeight - window.innerHeight > 160;
+
+    if ((devtoolsOpen || devtoolsSizeOpen) && !debugAllowed) {
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "red";
+      ctx.font = "20px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("⚠️ 개발자 도구 감지됨 - 게임 중단 ⚠️", canvas.width / 2, canvas.height / 2);
+
+      alert("개발자 도구 사용이 감지되어 게임이 종료되었습니다.");
+      // 이후 입력 무시
+      document.onkeydown = document.onkeyup = () => false;
+    }
+  }, 1000);
+})();
+
+
 document.addEventListener("keydown", (e) => {
   const preventList = ["z", "x", "c", " ", "p", "o", "Enter"];
   if (preventList.includes(e.key)) e.preventDefault();
