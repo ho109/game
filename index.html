@@ -101,6 +101,8 @@ let difficultyMenuActive = true;
 let difficultyOptions = ["easy", "normal", "hard"];
 let selectedDifficultyIndex = 1;
 let cheatUnlocked = false;
+let showLeclerc = false;
+let leclercBuffApplied = false;
 
 const imagePaths = [
   "image/slime.png",        // 0
@@ -127,7 +129,7 @@ const enemies = [
   { nameKo: "마법사..?", nameEn: "Wizard..?", maxHp: 25, atk: 2, coin: 0, pattern: () => spawnSpiralBullets(), img: new Image() },
   { nameKo: "진짜 마법사", nameEn: "Real Wizard", maxHp: 40, atk: 3, coin: 15, pattern: () => realWizardPattern(), img: new Image() },
   { nameKo: "고블린 상점", nameEn: "Goblin Shop", maxHp: 9999, atk: 0, coin: 0, pattern: () => {}, img: new Image() },
-  { nameKo: "불", nameEn: "Fire", maxHp: 35, atk: 5, coin: 20, pattern: () => spawnRisingBullets(), img: new Image() }
+  { nameKo: "불", nameEn: "Fire", maxHp: 50, atk: 5, coin: 50, pattern: () => spawnRisingBullets(), img: new Image() }
 ];
 
 imagePaths.forEach((path, index) => {
@@ -220,6 +222,11 @@ function drawDifficultyMenu() {
   });
 }
 
+// 르클레르 모드 속도 보너스 적용 함수
+function getSpeedWithLeclerc(baseSpeed) {
+  return showLeclerc ? baseSpeed + 2 : baseSpeed;
+}
+
 function drawAttackGauge() {
   if (!isAttackGaugeActive) return;
   const barX = canvas.width / 2 - 150;
@@ -284,6 +291,8 @@ function update() {
   drawAttackGauge();
   drawBullets();
   updatePlayerMovement();
+  drawLeclerc();
+
 
   // ✅ 로봇 경고 후 폭발형 탄막
   if (robotWarnings.length > 0) {
@@ -330,50 +339,71 @@ function update() {
 }
 
 function spawnDiagonalBulletsFromTopRight() {
-  if (tick % 25 !== 0) return; // 속도 프레임 높이기
-  const count = 5; // 줄어든 밀도
+  if (tick % 25 !== 0) return;
+  const count = 5;
   for (let i = 0; i < count; i++) {
     const startX = fightBox.x + fightBox.width;
     const startY = fightBox.y;
-    const playerCenterX = player.x + player.width / 2;
-    const playerCenterY = player.y + player.height / 2;
-    const dx = playerCenterX - startX;
-    const dy = playerCenterY - startY;
-    const angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.25; // 소폭 분산
-    const speed = 4 + Math.random() * 1.5; // 더 빠르게
-    const velocityX = Math.cos(angle) * speed;
-    const velocityY = Math.sin(angle) * speed;
-
+    const dx = (player.x + player.width / 2) - startX;
+    const dy = (player.y + player.height / 2) - startY;
+    const angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.25;
+    const speed = getSpeedWithLeclerc(4 + Math.random() * 1.5);
     bullets.push({
       x: startX,
       y: startY,
       width: 10,
       height: 10,
-      speedX: velocityX,
-      speedY: velocityY
+      speedX: Math.cos(angle) * speed,
+      speedY: Math.sin(angle) * speed
     });
   }
-}           
-
+}
+    
 function spawnModifiedRobotBullets() {
   if (tick % 90 !== 0 || robotWarnings.length > 0) return;
 
   robotWarnings = [];
-  robotWarnTimer = 50 //
+  robotWarnTimer = 50;
 
-  for (let i = 0; i < 6; i++) { // ✅ 경고 지점 6개
+  for (let i = 0; i < 6; i++) {
     const x = fightBox.x + Math.random() * fightBox.width;
     const y = fightBox.y + Math.random() * fightBox.height;
     robotWarnings.push({ x, y });
   }
-}
 
+  // 경고 후 발사 타이밍에 실제 탄환 생성
+  setTimeout(() => {
+    robotWarnings.forEach(pos => {
+      const cx = pos.x;
+      const cy = pos.y;
+      const count = 8;
+      const speed = showLeclerc ? 4.5 : 2.5; // 르클레르 효과
+
+      for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count;
+        bullets.push({
+          x: cx,
+          y: cy,
+          width: 8,
+          height: 8,
+          speedX: Math.cos(angle) * speed,
+          speedY: Math.sin(angle) * speed
+        });
+      }
+    });
+
+    screenShake = 6;
+    flashTimer = 5;
+    robotWarnings = [];
+  }, robotWarnTimer * 16); // 대략 프레임 변환
+}
 
 function spawnSpiralBullets() {
   if (tick % 30 !== 0) return;
   const angleCount = 12;
   const centerX = fightBox.x + fightBox.width / 2;
   const centerY = fightBox.y + fightBox.height / 2;
+  const speed = getSpeedWithLeclerc(2);
   for (let i = 0; i < angleCount; i++) {
     const angle = (tick / 10) + (i * (Math.PI * 2 / angleCount));
     bullets.push({
@@ -381,11 +411,12 @@ function spawnSpiralBullets() {
       y: centerY,
       width: 8,
       height: 8,
-      speedX: Math.cos(angle) * 2,
-      speedY: Math.sin(angle) * 2
+      speedX: Math.cos(angle) * speed,
+      speedY: Math.sin(angle) * speed
     });
   }
 }
+
 function realWizardPattern() {
   if (enemy.patternIndex === undefined) enemy.patternIndex = 0;
   if (enemy.patternTimer === undefined) enemy.patternTimer = 0;
@@ -424,7 +455,7 @@ function spawnMeteorExplosions() {
       y: fightBox.y - 30,
       width: 30,
       height: 30,
-      speedY: 2.5,
+      speedY: showLeclerc ? 4.5 : 2.5, // 르클레르 효과 적용
       starburst: true,
       timer: 40,
       blink: 0
@@ -432,6 +463,7 @@ function spawnMeteorExplosions() {
     bullets.push(meteor);
   }
 }
+
 
 function spawnHomingShotsTeleport() {
   if (tick % 60 !== 0) return;
@@ -506,44 +538,43 @@ function spawnDelayedBlastCross() {
   }
 }
 
-
 function spawnSideBullets(count = 2) {
-  if (tick % 20 !== 0) return; // 발사 시간 조정정
+  if (tick % 20 !== 0) return;
+  const baseSpeed = getSpeedWithLeclerc(2);
   for (let i = 0; i < count; i++) {
     bullets.push({
       x: i % 2 === 0 ? fightBox.x : fightBox.x + fightBox.width,
       y: fightBox.y + Math.random() * fightBox.height,
       width: 10,
       height: 10,
-      speedX: i % 2 === 0 ? 2 : -2,
+      speedX: i % 2 === 0 ? baseSpeed : -baseSpeed,
       horizontal: true
     });
   }
 }
 
 function spawnRandomBullets(count = 4) {
-  if (tick % 24 !== 0) return; // 약 0.4초 간격
+  if (tick % 24 !== 0) return;
   for (let i = 0; i < count; i++) {
     let x = fightBox.x + Math.random() * fightBox.width;
-    x += (Math.random() - 0.5) * 60; // 좌우 ±30px 퍼짐
-    x = Math.max(fightBox.x, Math.min(fightBox.x + fightBox.width - 10, x)); // 경계 제한
-
+    x += (Math.random() - 0.5) * 60;
+    x = Math.max(fightBox.x, Math.min(fightBox.x + fightBox.width - 10, x));
     bullets.push({
       x,
       y: fightBox.y,
       width: 10,
       height: 10,
-      speedY: 2.5 + Math.random() * 1.5
+      speedY: getSpeedWithLeclerc(2.5 + Math.random() * 1.5)
     });
   }
 }
 
 function spawnBouncingBullets() {
   if (tick % 30 !== 0) return;
-  const count = 10; // 10
+  const count = 10;
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const speed = 1.2 + Math.random() * 0.8; // 살짝 느리게 조정
+    const speed = getSpeedWithLeclerc(1.2 + Math.random() * 0.8);
     bullets.push({
       x: fightBox.x + fightBox.width / 2 + (Math.random() * 40 - 20),
       y: fightBox.y + fightBox.height / 2 + (Math.random() * 40 - 20),
@@ -552,14 +583,13 @@ function spawnBouncingBullets() {
       speedX: Math.cos(angle) * speed,
       speedY: Math.sin(angle) * speed,
       bounce: true,
-      bouncesLeft: 2 // 튕김 횟수도 3 → 2 로 낮출 수 있음
+      bouncesLeft: 2
     });
   }
 }
 
 function spawnRisingBullets() {
   if (tick % 20 !== 0) return;
-
   const spawnCount = Math.random() < 0.5 ? 1 : 2;
   for (let i = 0; i < spawnCount; i++) {
     bullets.push({
@@ -567,7 +597,7 @@ function spawnRisingBullets() {
       y: fightBox.y + fightBox.height + Math.random() * 20,
       width: 10,
       height: 10,
-      speedY: -1.8,
+      speedY: -getSpeedWithLeclerc(1.8),
       fireExplode: true,
       flicker: true,
       baseX: Math.random() * Math.PI * 2
@@ -577,24 +607,32 @@ function spawnRisingBullets() {
 
 function spawnSlimeCornerSplits() {
   if (tick % 60 !== 0) return;
+
   const corners = [
     { x: fightBox.x, y: fightBox.y },
     { x: fightBox.x + fightBox.width, y: fightBox.y },
     { x: fightBox.x, y: fightBox.y + fightBox.height },
     { x: fightBox.x + fightBox.width, y: fightBox.y + fightBox.height },
   ];
+
   corners.forEach(corner => {
+    let dx = player.x - corner.x;
+    let dy = player.y - corner.y;
+    const magnitude = Math.sqrt(dx * dx + dy * dy) || 1;
+    const baseSpeed = magnitude / 60;
+    const speedBonus = showLeclerc ? 2 : 0;
+    const speed = baseSpeed + speedBonus;
+
     bullets.push({
       x: corner.x,
       y: corner.y,
       width: 12,
       height: 12,
-      speedX: (player.x - corner.x) / 60,
-      speedY: (player.y - corner.y) / 60
+      speedX: (dx / magnitude) * speed,
+      speedY: (dy / magnitude) * speed
     });
   });
 }
-
 function updateBullets() {
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
@@ -602,6 +640,13 @@ function updateBullets() {
     // 기본 이동
     if (b.speedX) b.x += b.speedX;
     if (b.speedY) b.y += b.speedY;
+
+    // 💨 탄막 수명 관리 (30초 후 제거)
+    b.lifetime = (b.lifetime || 0) + 1;
+    if (b.lifetime >= 1800) {
+      bullets.splice(i, 1);
+      continue;
+    }
 
     // 일렁임 효과 (불꽃)
     if (b.flicker) {
@@ -673,7 +718,10 @@ function updateBullets() {
     // 💥 플레이어 피격
     if (!b.starburst && !b.delayBlast && detectCollision(player, b)) {
       b.y = -100;
-      player.hp -= enemy.atk;
+      const rawDamage = enemy.atk;
+      const defense = showLeclerc ? 3 : 0;
+      const finalDamage = Math.max(1, rawDamage - defense);
+      player.hp -= finalDamage;
       if (player.hp <= 0) {
         gameOver = true;
         gameWon = false;
@@ -681,7 +729,6 @@ function updateBullets() {
     }
   }
 }
-
 
 function explodeFireBullet(bullet) {
   const centerX = bullet.x + bullet.width / 2;
@@ -909,15 +956,19 @@ function drawHelpUI() {
 function updatePlayerMovement() {
   if (gameOver || isInShop) return;
 
+  const speedBoost = showLeclerc ? 1 : 0;
+  const actualSpeed = player.speed + speedBoost;
+
   if ((keys["ArrowLeft"] || keys["a"]) && player.x > fightBox.x)
-    player.x -= player.speed;
+    player.x -= actualSpeed;
   if ((keys["ArrowRight"] || keys["d"]) && player.x + player.width < fightBox.x + fightBox.width)
-    player.x += player.speed;
+    player.x += actualSpeed;
   if ((keys["ArrowUp"] || keys["w"]) && player.y > fightBox.y)
-    player.y -= player.speed;
+    player.y -= actualSpeed;
   if ((keys["ArrowDown"] || keys["s"]) && player.y + player.height < fightBox.y + fightBox.height)
-    player.y += player.speed;
+    player.y += actualSpeed;
 }
+
 
 (function () {
   let devtoolsOpen = false;
@@ -987,34 +1038,59 @@ document.addEventListener("keydown", (e) => {
     }
     return;
   }
+// 수동 적 변경 (P)
+if (e.key.toLowerCase() === "p" && !isInShop && !gameOver) {
+  const input = prompt("Enter enemy index (0 ~ " + (enemies.length - 1) + ") or keyword:");
+  const keyword = (input || "").toLowerCase();
+  const triggers = ["르클레르", "charles", "leclerc", "르끌레르"];
 
-  // 수동 적 변경 (P)
-  if (e.key.toLowerCase() === "p" && !isInShop && !gameOver) {
-    const input = prompt("Enter enemy index (0 ~ " + (enemies.length - 1) + "):");
-    const index = parseInt(input);
-    if (!isNaN(index) && index >= 0 && index < enemies.length) {
-      if (animationFrameId !== null) {
-        cancelAnimationFrame(animationFrameId);
-        animationFrameId = null;
-      }
-      currentEnemyIndex = index;
-      enemy = enemies[currentEnemyIndex];
-      applyDifficultyStats(enemy);
-      resetPlayerStats();
-      bullets.length = 0;
-      gameOver = false;
-      gameWon = false;
-      turn = "player";
-      isAttackGaugeActive = false;
-      gaugeX = 0;
-      tick = 0;
-      robotWarnings = [];
-      robotWarnTimer = 0;
-      isInShop = (enemy.nameKo === "고블린 상점");
-      startGameLoop();
+  // 르클레르 트리거 감지
+  if (triggers.some(k => keyword.includes(k))) {
+    showLeclerc = true;
+
+    if (!leclercBuffApplied) {
+      player.defenseBoost = 5;
+      enemies.forEach(e => {
+        e.atk += 2;
+        e.speedBonus = (e.speedBonus || 0) + 2;
+      });
+      leclercBuffApplied = true;
     }
+
+    alert(language === "ko"
+      ? "🎉 르클레르의 축복! 방어력 +3 / 적 공격력 & 속도 증가"
+      : "🎉 Blessing of Leclerc! +3 You got Defense / Enemies get faster & stronger");
     return;
+
   }
+
+  // 기존 적 인덱스 변경 처리
+  const index = parseInt(input);
+  if (!isNaN(index) && index >= 0 && index < enemies.length) {
+    if (animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+    currentEnemyIndex = index;
+    enemy = enemies[currentEnemyIndex];
+    applyDifficultyStats(enemy);
+    resetPlayerStats();
+    bullets.length = 0;
+    gameOver = false;
+    gameWon = false;
+    turn = "player";
+    isAttackGaugeActive = false;
+    gaugeX = 0;
+    tick = 0;
+    robotWarnings = [];
+    robotWarnTimer = 0;
+    isInShop = (enemy.nameKo === "고블린 상점");
+    startGameLoop();
+  }
+
+  return;
+}
+
 
   // 게임 재시작 (스페이스)
   if (gameOver && e.key === " ") {
@@ -1047,7 +1123,7 @@ document.addEventListener("keydown", (e) => {
   if (isInShop) {
     if (e.key === "z" && coins >= 5) {
       coins -= 5;
-      playerAttackPower++;
+      playerAttackPower += 0.3;
     } else if (e.key === "x" && coins >= 5) {
       coins -= 5;
       player.items++;
@@ -1177,6 +1253,15 @@ setInterval(() => {
   }
   lastHeight = window.outerHeight;
 }, 1000);
+
+const leclercImg = new Image();
+leclercImg.src = "image/르클레르.webp";
+
+function drawLeclerc() {
+  if (!showLeclerc || !leclercImg.complete) return;
+  const size = 120;
+  ctx.drawImage(leclercImg, canvas.width - size - 10, 10, size, size);
+}
 
 
 </script>
