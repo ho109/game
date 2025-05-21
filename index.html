@@ -238,7 +238,15 @@ function drawAttackGauge() {
   ctx.fillStyle = "red";
   ctx.fillRect(barX + gaugeX, barY, 10, 20); // 움직이는 게이지 바
   gaugeX += gaugeDir;
-  if (gaugeX <= 0 || gaugeX >= 290) gaugeDir *= -1;
+
+// 경계 충돌 시 한계값 고정 후 방향 반전
+  if (gaugeX < 0) {
+    gaugeX = 0;
+    gaugeDir *= -1;
+  } else if (gaugeX > 290) {
+    gaugeX = 290;
+    gaugeDir *= -1;
+  }
 }
 
 
@@ -1255,12 +1263,19 @@ setInterval(() => {
 }, 1000);
 
 const leclercImg = new Image();
-leclercImg.src = "image/르클레르.webp";
+leclercImg.src = "image/leclerc.webp"; // 반드시 영문명으로
+
 
 function drawLeclerc() {
-  if (!showLeclerc || !leclercImg.complete) return;
-  const size = 120;
-  ctx.drawImage(leclercImg, canvas.width - size - 10, 10, size, size);
+  if (!showLeclerc || !leclercImg.complete || leclercImg.naturalWidth === 0) return;
+
+  const scale = 0.26; // 원하는 크기 비율
+  const imgWidth = leclercImg.naturalWidth * scale;
+  const imgHeight = leclercImg.naturalHeight * scale;
+  const offsetX = canvas.width - imgWidth - 30;
+  const offsetY = fightBox.y - imgHeight - 20;
+
+  ctx.drawImage(leclercImg, offsetX, offsetY, imgWidth, imgHeight);
 }
 
 
