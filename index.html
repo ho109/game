@@ -122,8 +122,8 @@ const enemies = [
   { nameKo: "슬라임", nameEn: "Slime", maxHp: 10, atk: 1, coin: 2, pattern: () => spawnSlimeCornerSplits(), img: new Image() },
   { nameKo: "박쥐", nameEn: "Bat", maxHp: 12, atk: 2, coin: 3, pattern: () => spawnSideBullets(3), img: new Image() },
   { nameKo: "해골 궁수", nameEn: "Skeleton Archer", maxHp: 15, atk: 3, coin: 5, pattern: () => spawnDiagonalBulletsFromTopRight(), img: new Image() },
-  { nameKo: "해골 머리", nameEn: "Skull", maxHp: 18, atk: 3, coin: 5, pattern: () => spawnRandomBullets(6), img: new Image() },
-  { nameKo: "거대 슬라임", nameEn: "King Slime", maxHp: 80, atk: 2, coin: 7, pattern: () => spawnBouncingBullets(), scale: 2, img: new Image() },
+  { nameKo: "해골 머리", nameEn: "Skull", maxHp: 18, atk: 2, coin: 5, pattern: () => spawnRandomBullets(6), img: new Image() },
+  { nameKo: "거대 슬라임", nameEn: "King Slime", maxHp: 80, atk: 2.5, coin: 7, pattern: () => spawnBouncingBullets(), scale: 2, img: new Image() },
   { nameKo: "고블린 상점", nameEn: "Goblin Shop", maxHp: 9999, atk: 0, coin: 0, pattern: () => {}, img: new Image() },
   { nameKo: "로봇", nameEn: "Robot", maxHp: 30, atk: 3, coin: 8, pattern: () => spawnModifiedRobotBullets(), img: new Image() },
   { nameKo: "마법사..?", nameEn: "Wizard..?", maxHp: 25, atk: 2, coin: 0, pattern: () => spawnSpiralBullets(), img: new Image() },
@@ -641,9 +641,9 @@ function updateBullets() {
     if (b.speedX) b.x += b.speedX;
     if (b.speedY) b.y += b.speedY;
 
-    // 💨 탄막 수명 관리 (30초 후 제거)
+    // 💨 탄막 수명 관리 (10초 후 제거)
     b.lifetime = (b.lifetime || 0) + 1;
-    if (b.lifetime >= 1800) {
+    if (b.lifetime >= 600) {
       bullets.splice(i, 1);
       continue;
     }
@@ -1123,7 +1123,7 @@ if (e.key.toLowerCase() === "p" && !isInShop && !gameOver) {
   if (isInShop) {
     if (e.key === "z" && coins >= 5) {
       coins -= 5;
-      playerAttackPower += 0.3;
+      playerAttackPower += 0.5;
     } else if (e.key === "x" && coins >= 5) {
       coins -= 5;
       player.items++;
